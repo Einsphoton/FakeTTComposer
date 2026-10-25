@@ -1,0 +1,310 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TT作曲家 Web 版 · 简谱编辑 / 自动伴奏 / 打印</title>
+<meta name="description" content="TT作曲家 Web 版：在浏览器里写简谱、自动伴奏、导出 MIDI 与打印，可部署在 NAS 上全家使用。">
+<link rel="icon" href="favicon.svg">
+<link rel="stylesheet" href="css/app.css?v=1.1.0">
+</head>
+<body>
+<div class="auth-screen" id="authScreen" hidden>
+  <div class="auth-card">
+    <div class="auth-logo"><b>TT</b>作曲家<em>Web</em></div>
+    <p class="auth-slogan">登录后，谱子会存在你自己的云端空间里</p>
+
+    <div class="auth-tabs" id="authTabs">
+      <button type="button" class="active" data-auth-tab="login">登录</button>
+      <button type="button" data-auth-tab="register">注册新账号</button>
+    </div>
+
+    <form id="authForm" novalidate>
+      <label class="field">
+        <span>用户名</span>
+        <input id="authUser" name="username" autocomplete="username" maxlength="20" placeholder="2-20 位，中文 / 字母 / 数字">
+      </label>
+      <label class="field reg-only">
+        <span>昵称 <i>（可选）</i></span>
+        <input id="authName" name="nickname" autocomplete="nickname" maxlength="20" placeholder="显示在右上角，比如「妈妈」">
+      </label>
+      <label class="field">
+        <span>密码</span>
+        <input id="authPass" name="password" type="password" autocomplete="current-password" maxlength="64" placeholder="至少 6 位">
+      </label>
+      <label class="field reg-only">
+        <span>再输一次密码</span>
+        <input id="authPass2" type="password" maxlength="64" placeholder="确认没打错">
+      </label>
+      <p class="auth-error" id="authError"></p>
+      <button class="auth-submit" type="submit" id="authSubmit">登 录</button>
+    </form>
+
+    <p class="auth-foot" id="authFoot">第一次用？点上面的「注册新账号」，只要十几秒。</p>
+  </div>
+  <p class="auth-note">谱子存在你自己 NAS 的硬盘上 · 不会上传到任何第三方</p>
+</div>
+
+<div id="app">
+
+  <header class="topbar">
+    <div class="logo"><b>TT</b>作曲家<em>Web</em></div>
+    <div class="doc-title-wrap">
+      <input id="docTitle" class="doc-title" value="未命名乐曲" spellcheck="false" title="点击修改曲名">
+      <span id="saveState" class="save-state">未保存</span>
+    </div>
+    <div class="top-actions">
+      <div class="user-chip" id="userChip" hidden>
+        <span class="avatar" id="userAvatar">我</span>
+        <span class="uname" id="userName"></span>
+        <button class="btn ghost small" id="btnLogout" title="退出登录">退出</button>
+      </div>
+      <span class="sep"></span>
+      <button class="btn" data-act="new">新建</button>
+      <button class="btn" data-act="open">打开</button>
+      <button class="btn primary" data-act="save">保存</button>
+      <span class="sep"></span>
+      <button class="btn" data-act="midi">导出 MIDI</button>
+      <button class="btn" data-act="print">打印 / PDF</button>
+      <button class="btn ghost" data-act="help">帮助</button>
+    </div>
+  </header>
+
+  <div class="toolstrip" id="toolstrip">
+    <div class="tgroup">
+      <span class="tlabel">时值</span>
+      <button class="tool" data-dur="4" title="全音符（A）">全</button>
+      <button class="tool" data-dur="2" title="二分音符（S）">二分</button>
+      <button class="tool active" data-dur="1" title="四分音符（D）">四分</button>
+      <button class="tool" data-dur="0.5" title="八分音符（F）">八分</button>
+      <button class="tool" data-dur="0.25" title="十六分音符（G）">十六</button>
+      <button class="tool" data-dur="0.125" title="三十二分音符（H）">卅二</button>
+      <button class="tool" data-cmd="dot" title="附点（.）">附点</button>
+      <button class="tool" data-dur="0.3333" title="三连音">三连</button>
+    </div>
+    <div class="tgroup">
+      <span class="tlabel">记号</span>
+      <button class="tool" data-cmd="rest" title="休止符（0）">休止 0</button>
+      <button class="tool" data-cmd="tie" title="连音线">连音线</button>
+      <button class="tool" data-cmd="slur" title="圆滑线">圆滑线</button>
+      <button class="tool" data-cmd="fermata" title="延长记号">延长</button>
+      <button class="tool" data-cmd="breath" title="换气记号">换气</button>
+    </div>
+    <div class="tgroup">
+      <span class="tlabel">变音</span>
+      <button class="tool acc" data-acc="#" title="升号（V）">♯</button>
+      <button class="tool acc" data-acc="b" title="降号（X）">♭</button>
+      <button class="tool acc" data-acc="n" title="还原号（C）">♮</button>
+      <button class="tool acc" data-acc="##" title="重升（B）">♯♯</button>
+      <button class="tool acc" data-acc="bb" title="重降（Z）">♭♭</button>
+    </div>
+    <div class="tgroup">
+      <span class="tlabel">小节</span>
+      <button class="tool" data-cmd="addMeasure" title="在当前小节后插入空小节">插入小节</button>
+      <button class="tool" data-cmd="delMeasure" title="删除当前小节">删除小节</button>
+      <button class="tool" data-cmd="repeatStart" title="反复开始">‖:</button>
+      <button class="tool" data-cmd="repeatEnd" title="反复结束">:‖</button>
+      <button class="tool" data-cmd="volta" title="跳房子（1./2. 结尾）">跳房子</button>
+    </div>
+  </div>
+
+  <div class="workspace">
+    <aside class="panel left">
+      <section class="block">
+        <h3>音符</h3>
+        <div class="keypad" id="keypad">
+          <button data-p="1">1</button><button data-p="2">2</button><button data-p="3">3</button>
+          <button data-p="4">4</button><button data-p="5">5</button><button data-p="6">6</button>
+          <button data-p="7">7</button><button data-p="0" class="rest">0</button>
+        </div>
+        <div class="octave-row" id="octaveRow">
+          <button data-o="-3" title="低三个八度（Q）">−3</button>
+          <button data-o="-2" title="低两个八度（W）">−2</button>
+          <button data-o="-1" title="低一个八度（E）">−1</button>
+          <button data-o="0" class="active" title="中音（R）">中</button>
+          <button data-o="1" title="高一个八度（T）">+1</button>
+          <button data-o="2" title="高两个八度（Y）">+2</button>
+          <button data-o="3" title="高三个八度（U）">+3</button>
+        </div>
+        <p class="hint">数字键 1-7 写音符，0 写休止；QWERTYUI 调八度，ASDFGH 调时值。</p>
+      </section>
+
+      <section class="block">
+        <h3>播放</h3>
+        <button class="play-btn" id="btnPlay"><span class="ico">▶</span><span>播放</span></button>
+        <div class="row">
+          <label class="lbl">速度</label>
+          <input type="range" id="tempoRange" min="40" max="208" step="1" value="96">
+          <span class="val" id="tempoVal">96</span>
+        </div>
+        <div class="row">
+          <label class="lbl">旋律</label>
+          <input type="range" id="melVol" min="0" max="1" step="0.01" value="0.9">
+        </div>
+        <div class="row">
+          <label class="lbl">伴奏</label>
+          <input type="range" id="accVol" min="0" max="1" step="0.01" value="0.7">
+        </div>
+        <label class="check"><input type="checkbox" id="metroChk"> 节拍器</label>
+      </section>
+
+      <section class="block">
+        <h3>位置</h3>
+        <div class="pos-info">
+          <div><span>小节</span><b id="posMeasure">1</b></div>
+          <div><span>拍</span><b id="posBeat">1</b></div>
+          <div><span>长度</span><b id="posLen">0 小节</b></div>
+        </div>
+      </section>
+    </aside>
+
+    <main class="score-area">
+      <div class="score-toolbar">
+        <div class="crumb" id="crumb">简谱编辑</div>
+        <div class="spacer"></div>
+        <label class="mini">缩放
+          <select id="zoomSel">
+            <option value="0.8">80%</option>
+            <option value="1" selected>100%</option>
+            <option value="1.2">120%</option>
+            <option value="1.4">140%</option>
+          </select>
+        </label>
+        <button class="btn small" id="btnUndo" title="撤销 Ctrl+Z">撤销</button>
+        <button class="btn small" id="btnRedo" title="重做 Ctrl+Shift+Z">重做</button>
+        <button class="btn small" data-act="preview" title="试听整首">从头试听</button>
+        <button class="btn small only-narrow" id="btnPanel">伴奏 / 音色</button>
+      </div>
+      <div class="score-scroll" id="scoreScroll">
+        <div class="score-page" id="scoreWrap"></div>
+      </div>
+    </main>
+
+    <aside class="panel right">
+      <div class="tabs" id="tabs">
+        <button class="tab active" data-tab="accomp">伴奏</button>
+        <button class="tab" data-tab="voice">音色</button>
+        <button class="tab" data-tab="lyric">歌词</button>
+        <button class="tab" data-tab="page">页面</button>
+      </div>
+
+      <div class="tabpane active" data-pane="accomp">
+        <section class="block">
+          <h3>节奏风格</h3>
+          <select id="styleSel" class="wide"></select>
+          <p class="desc" id="styleDesc"></p>
+          <label class="lbl block-lbl">变奏类型</label>
+          <select id="varSel" class="wide"></select>
+          <p class="hint">变奏类型对全曲生效：前奏铺底、主奏完整、加花补鼓、尾声收住；最后一小节默认按尾声处理。</p>
+        </section>
+        <section class="block">
+          <h3>和弦</h3>
+          <div class="row">
+            <label class="lbl">当前小节</label>
+            <input id="chordInput" class="text-input" placeholder="如 C / Am / G7 / F#m7" spellcheck="false">
+          </div>
+          <div id="chordGrid" class="chord-grid"></div>
+          <p class="hint">点击小节号跳转；留空表示沿用上一小节和弦。</p>
+        </section>
+      </div>
+
+      <div class="tabpane" data-pane="voice">
+        <section class="block">
+          <h3>旋律音色</h3>
+          <div id="presetGrid" class="preset-grid"></div>
+          <button class="btn wide" id="btnAudition">试听当前音色</button>
+        </section>
+        <section class="block">
+          <h3>伴奏说明</h3>
+          <p class="hint">伴奏由「节奏风格 + 和弦」实时生成，导出 MIDI 时分成贝斯、和弦、鼓组三条轨道，可在其他音乐软件里继续修改。</p>
+        </section>
+      </div>
+
+      <div class="tabpane" data-pane="lyric">
+        <section class="block">
+          <h3>歌词</h3>
+          <textarea id="lyricsText" class="lyrics" spellcheck="false" placeholder="在这里输入歌词：
+一个汉字对应一个音符，空格让下一个字跳过一拍，回车另起一段。"></textarea>
+          <div class="row gap">
+            <button class="btn small" id="btnAlign">重新对齐</button>
+            <button class="btn small" id="btnClearLyric">清空歌词</button>
+          </div>
+          <p class="hint">规则与 TT作曲家 相同：每个汉字（或英文单词）对一个音符；空格往后空一个音符；换行另起一段（跳到下一小节）。标点自动贴在前一个字后面。</p>
+        </section>
+      </div>
+
+      <div class="tabpane" data-pane="page">
+        <section class="block">
+          <h3>乐谱信息</h3>
+          <label class="lbl block-lbl">调号</label>
+          <div class="row">
+            <select id="keySel" class="wide"></select>
+            <select id="modeSel">
+              <option value="major">大调</option>
+              <option value="minor">小调</option>
+            </select>
+          </div>
+          <label class="lbl block-lbl">拍号</label>
+          <div class="row">
+            <select id="timeNum"></select>
+            <span class="slash">/</span>
+            <select id="timeDen"></select>
+          </div>
+          <label class="lbl block-lbl">副标题（词曲作者）</label>
+          <input id="subtitleInput" class="text-input wide" placeholder="词：XXX　曲：XXX" spellcheck="false">
+        </section>
+        <section class="block">
+          <h3>显示</h3>
+          <label class="check"><input type="checkbox" id="showChords" checked> 显示和弦</label>
+          <label class="check"><input type="checkbox" id="showLyrics" checked> 显示歌词</label>
+          <label class="check"><input type="checkbox" id="showRuler" checked> 显示小节号</label>
+        </section>
+        <section class="block">
+          <h3>工程</h3>
+          <div class="row gap">
+            <button class="btn small" data-act="exportJson">导出工程</button>
+            <button class="btn small" data-act="importJson">导入工程</button>
+          </div>
+          <div class="row gap">
+            <button class="btn small" data-act="importMidi">导入 MIDI 旋律</button>
+          </div>
+          <div class="row gap">
+            <button class="btn small" data-act="password">修改密码</button>
+            <button class="btn small danger" data-act="deleteProject">删除此工程</button>
+          </div>
+        </section>
+      </div>
+    </aside>
+  </div>
+
+  <footer class="statusbar">
+    <span id="statusMsg">就绪</span>
+    <span class="spacer"></span>
+    <span id="statusInfo"></span>
+  </footer>
+</div>
+
+<div class="modal-mask" id="modalMask" hidden>
+  <div class="modal" id="modal">
+    <header class="modal-head">
+      <h2 id="modalTitle">标题</h2>
+      <button class="close" id="modalClose">×</button>
+    </header>
+    <div class="modal-body" id="modalBody"></div>
+    <footer class="modal-foot" id="modalFoot"></footer>
+  </div>
+</div>
+
+<div class="print-root" id="printRoot"></div>
+<input type="file" id="fileInput" accept="application/json,.json" hidden>
+<input type="file" id="midiInput" accept=".mid,.midi,audio/midi,audio/x-midi" hidden>
+
+<script src="js/model.js?v=1.1.0"></script>
+<script src="js/styles.js?v=1.1.0"></script>
+<script src="js/render.js?v=1.1.0"></script>
+<script src="js/audio.js?v=1.1.0"></script>
+<script src="js/midi.js?v=1.1.0"></script>
+<script src="js/midi-import.js?v=1.1.0"></script>
+<script src="js/app.js?v=1.1.0"></script>
+</body>
+</html>

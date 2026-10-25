@@ -1,0 +1,26 @@
+services:
+  ttcomposer:
+    # 两种用法，二选一：
+    #  1) 直接拉 GitHub Actions 打好的镜像（NAS 上不用编译，最快）
+    image: ghcr.io/einsphoton/fakettcomposer:latest
+    #  2) 想改代码后用本地源码构建，就把上面那行注释掉、用下面这行
+    # build: .
+    container_name: ttcomposer
+    restart: unless-stopped
+    ports:
+      # 左边是 NAS 上的端口，冲突时改成 8090 等
+      - "8080:8080"
+    environment:
+      TZ: Asia/Shanghai
+      # 改成你 NAS 上拥有共享文件夹权限的用户，群晖常见是 1026，威联通常见 1000
+      PUID: "1000"
+      PGID: "1000"
+    volumes:
+      # 工程文件保存在这里，请改成 NAS 上的实际路径，并定期备份
+      - ./data:/data
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:8080/api/health"]
+      interval: 30s
+      timeout: 4s
+      retries: 3
+      start_period: 5s
