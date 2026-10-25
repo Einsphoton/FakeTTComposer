@@ -65,6 +65,15 @@ docker run -d --name ttcomposer \
 
 更新版本只要 `docker pull` 再 `docker restart ttcomposer`，数据都在挂载的 `/data` 里，不会丢。
 
+镜像标签的规则：
+
+| 标签 | 含义 |
+| --- | --- |
+| `latest` | `main` 分支最新一次提交 |
+| `1.1.0` / `1.1` | 打了 `v1.1.0` 这类版本标签的发布版（想固定版本、不被更新覆盖就用它） |
+| `main` | main 分支最新构建 |
+| `sha-1515332` | 某一次具体提交，方便回滚排查 |
+
 > 如果 `docker pull` 提示 `unauthorized`，说明这个包还是私有的：到仓库右侧 **Packages** → 点开镜像 → **Package settings** → **Change visibility** → 选 **Public**，只需要设置一次。之后在任何机器上都能直接拉。
 
 ### 方式二：docker compose（要改端口/路径时用）
